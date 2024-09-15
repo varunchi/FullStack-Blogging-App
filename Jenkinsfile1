@@ -1,29 +1,54 @@
-pipeline { 
-    agent { label 'slave-1'}
-    
+pipeline {
+    agent any
     tools {
         maven 'maven3'
         jdk 'jdk17'
+        
+    }
+    environment {
+        SCANNER_HOME=tool 'soanr-scanner'
     }
 
     stages {
-        
-        stage('Compile') {
+            stage('git checkout') {
             steps {
-            sh  "mvn compile"
+                git branch: 'main', url: 'https://github.com/varunchi/FullStack-Blogging-App.git'
+            }
+        }    
+        stage('compile') {
+            steps {
+                sh "mvn compile"
             }
         }
-        
-        stage('Test') {
+        stage('test') {
             steps {
                 sh "mvn test"
             }
         }
-        
-        stage('Package') {
+        stage('package') {
             steps {
                 sh "mvn package"
             }
+        }  
+        stage("Sonarqube Analysis "){
+            steps{
+                withSonarQubeEnv('soanr-scan') {
+                    
+                    sh ''' $SCANNER_HOME/bin/sonar-scanner -Dsonar.projectKey=Blogging-App -Dsonar.projectName='Blogging-App' -Dsonar.java.binaries=target -Dsonar.host.url=http://54.162.4.99:9000 -Dsonar.token=sqp_fde1079ebe95fe2e1bf5b2f061c05767220dae0d '''
+                }
+            }
         }
+         stage('publish artifactory') {
+            steps {
+                withMaven(globalMavenSettingsConfig: 'maven-settings', jdk: 'jdk17', maven: 'maven3', mavenSettingsConfig: '', traceability: true) {
+                sh "mvn deploy"
+                }
+            }
+        } 
+         stage('hello') {
+            steps {
+                echo 'hello'
+            }
+        }          
     }
 }
